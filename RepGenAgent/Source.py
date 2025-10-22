@@ -4,9 +4,13 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langsmith import Client
+import os
+import re
 
+wd = os.path.abspath(__file__).replace('\\', '/')
+wd = re.sub('[^\/]+\.py', '', wd)
 
-load_dotenv('.env')
+load_dotenv(f'{wd}/.env')
 
 # llm
 agent_llm = ChatGoogleGenerativeAI(model='gemini-2.5-flash', temperature=0)
@@ -30,7 +34,7 @@ embedding = HuggingFaceEmbeddings(
 )
 
 vectorstore = Chroma(
-    persist_directory='./chroma_reports_db',
+    persist_directory=f'{wd}/chroma_reports_db',
     embedding_function=embedding,
     collection_name="reports_ko1" 
 )

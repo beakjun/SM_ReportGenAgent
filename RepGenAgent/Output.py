@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
+from typing import Literal, Optional, Any
 
 class TaskInfo(BaseModel):
     contents_id: str = Field(..., description="콘텐츠 목차 + 콘텐츠 명")
     type: Literal["Chart", "Table"] = Field(..., description="콘텐츠 결과 유형")
     contents: str = Field(..., description="태스크 설명")
+
 
 class Output(object):
     class GetMode(BaseModel):
@@ -32,8 +33,8 @@ class Output(object):
     class TaskDecomposer(BaseModel):
         tasks: list[TaskInfo] = Field(
             default_factory=list,
-            min_item=3,
-            max_item=8,
+            min_items=3,
+            max_items=8,
             description='3~8개로 분해된 테스크')
     
     class GetReportInfo(BaseModel):

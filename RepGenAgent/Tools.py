@@ -66,7 +66,7 @@ class DataLoader(object):
         return ChatPromptTemplate.from_template(prompt[prompt_type])
 
     def _execute_query(self, query):
-        rdb = DB('exem', 'postgres')
+        rdb = DB('pg', 'postgres')
         data = rdb.read_table(query)
         return data
 

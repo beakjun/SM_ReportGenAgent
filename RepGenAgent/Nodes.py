@@ -56,9 +56,18 @@ def get_mode(state:State):
             'query_id': answer.query_id,
             'tasks': [],
             'results': [],
-            'current_task_index': 0
+            'current_task_index': 0,
+            'goal' : '',
+            'report_title':'',
+            'mode': '',
+            'doc_val_response':'',
+            "doc_val_reason":'',
+            "documents":'',
+            "optimized_goal":'',
+            "final_output":'',
+            "save_dir":''
             }
-
+    
 # 리포트
 @node_logging
 def get_goal(state:State):

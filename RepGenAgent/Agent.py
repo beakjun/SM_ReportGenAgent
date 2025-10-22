@@ -10,6 +10,8 @@ from .Output import Output
 
 from langchain.agents import create_react_agent,AgentExecutor
 
+from BK.db import DB
+from langchain_community.utilities import SQLDatabase
 
 # Report
 class GetMode(object):
@@ -101,25 +103,31 @@ class GetReportInfo(object):
         )
     def __create_prompt(self):
         template = """
-                당신은 엄격하고 객관적인 문서 유효성 검사관입니다. 아래에 제시된 **[사용자 목표/질문]**과 **[검색된 문서]**를 철저하게 비교하여, 문서가 목표를 설명하는 데 충분한 정보를 제공하는지 여부를 판단하세요.
+            당신은 엄격하고 객관적인 문서 유효성 검사관입니다. 아래에 제시된 **[사용자 목표/질문]**과 **[검색된 문서]**를 철저하게 비교하여, 문서가 목표를 설명하는 데 충분한 정보를 제공하는지 여부를 판단하세요.
 
-                [판단 기준]
-                YES:
-                문서의 내용이 **[사용자 목표/질문]**의 핵심 키워드나 주제에 대해 직접적이고 구체적인 정보를 포함하고 있는 경우.
-                제시된 문서만으로도 목표에 대한 초안 설명이나 답변을 구성하는 데 충분하다고 판단되는 경우.
+            [판단 기준]
+            YES:
+            - 문서가 **[사용자 목표/질문] 전체 주제의 본질적인 목적과 범위**를 직접적으로 다루고 있으며, 그 내용을 바탕으로 목표를 완전하게 설명하거나 보고서를 작성할 수 있을 정도로 충분한 정보를 포함한 경우.
+            - 문서의 제목과 주요 내용이 질문의 중심 주제와 명확히 일치하며, 부수적인 세부 주제가 아니라 **전체 주제를 대표**하는 경우.
 
-                NO:
-                문서의 내용이 **[사용자 목표/질문]**과 완전히 다른 주제를 다루고 있거나, 매우 일반적인 정보만 제공하여 목표에 대한 실질적인 설명을 할 수 없는 경우.
-                문서가 목표와 관련된 키워드를 포함하고 있더라도, 그 내용이 목표에 대한 의도를 충족시키지 못하는 경우.
-                
-                마지막으로 증거를 남기기위해 들고온 문서에 대해서 그대로 들고와주십시오.
-                 
-                목표:
-                {query}
-                
-                들고온 문서:
-                {context} 
-                """ 
+            NO:
+            - 문서가 질문의 **주요 목차의 일부이거나 구성요소만 다루는 경우.**
+            - 문서가 질문의 **핵심 키워드 일부만 포함하지만**, 그 내용을 통해 전체 목표를 충족할 수 없는 경우.
+            - 문서가 질문의 주제를 **간접적으로 언급**하거나, 일부 관련된 정보만 제공하는 경우.
+            - 문서가 단순히 데이터, 사례, 혹은 부분적 설명만 포함하여 **질문 전체에 대한 답변이나 초안을 구성할 수 없는 경우.**
+
+            유의사항:
+            - 핵심 키워드가 일부 등장하더라도, 그 내용이 전체 주제의 맥락과 목적을 포괄하지 않으면 반드시 NO로 판단해야 합니다.
+            - 질문이 포괄적인 목적을 가진 경우, 문서가 그 **전체 목적을 충족하지 않으면 YES로 분류할 수 없습니다.**
+
+            마지막으로 증거를 남기기위해 검색된 문서에 대해서 그대로 들고와주십시오.
+            
+            목표:
+            {query}
+            
+            검색된 문서:
+            {context} 
+            """ 
                 # 키워드 위주로 비교하며 정해진 목표가 문서로서 완성될 수 있는지 판단
         prompt = ChatPromptTemplate.from_template(template)
         return prompt
@@ -154,21 +162,21 @@ class GoalOptimizer(object):
 
     def __create_prompt(self):
         template = """당신은 야구 관련된 리포트 작성을 위한 목표 설정 전문가입니다.
-        주어진 원래목표와 주어진 문서(계획서)를 기반으로 콘텐츠별로 달성 가능한 세부적인 목표를 생성하십시오.
-        [원래목표]
-        {query}
+            주어진 원래목표와 주어진 문서(계획서)를 기반으로 콘텐츠별로 달성 가능한 세부적인 목표를 생성하십시오.
+            [원래목표]
+            {query}
 
-        [지시사항]
-        1. 주어진 문서에서의 목차번호와 해당 콘텐츠의 제목을 반드시 세부적인 목표와 같이 명시해주십시오.
-        2. 주어진 문서의 콘텐츠별로 최종적으로 달성해야할 목표를 아래와 같이 매핑하여 명시해주십시오.
-            - 표, Table : 데이터 반환
-            - Chart : 파이썬 코드 반환
+            [지시사항]
+            1. 주어진 문서에서의 목차번호와 해당 콘텐츠의 제목을 반드시 세부적인 목표와 같이 명시해주십시오.
+            2. 주어진 문서의 콘텐츠별로 최종적으로 달성해야할 목표를 아래와 같이 매핑하여 명시해주십시오.
+                - 표, Table : 데이터 반환
+                - Chart : 파이썬 코드 반환
+                
+            3. 원래 목표의 범위를 기준으로 반드시 주어진 문서 목차의 콘텐츠별로 달성해야될 목표를 작성하십시오.
+            4. 원래 목표를 그대로 반환하지 말것.
             
-        3. 원래 목표의 범위를 기준으로 반드시 주어진 문서의 콘텐츠별로 달성해야될 목표를 상세하게 작성하십시오.
-        4. 원래 목표를 그대로 반환하지 않고 아래 주어진 문서의 콘텐츠별로 달성해야될 목표를 작성하십시오.
-        
-        [주어진 문서]
-        {docs}
+            [주어진 문서]
+            {docs}
         """
         prompt = ChatPromptTemplate.from_template(template)
         return prompt
@@ -217,8 +225,9 @@ class TaskDecomposer(object):
         return f'{self.__class__.__name__}'
     
 class ExecuteTask(object):
-    def __init__(self, tools:list):
-        self.llm = ChatGoogleGenerativeAI(model='gemini-2.5-flash', temperature=0, top_p=1)
+    def __init__(self, llm, tools:list):
+        #self.llm = ChatGoogleGenerativeAI(model='gemini-2.5-flash', temperature=0, top_p=1)
+        self.llm = llm
         self.tools = tools
         self.prompt = self.__create_prompt()
         self.agent = self.__create_agent()
@@ -277,29 +286,71 @@ class ExecuteTask(object):
         return f'{self.__class__.__name__}'
     
 class ResultAggregator(object):
-    def __init__(self, llm):
+    def __init__(self, llm, db:SQLDatabase):
         self.llm = llm
-        self.prompt = self.__create_prompt()#
-        self.chain = self.prompt | self.llm.with_structured_output(Output.ResultAggregator)
+        self.db = db
+        self.tb_desc = self._get_db_desc()
+        self.select_tb_chain = self.__create_prompt('select_table') |  self.llm.with_structured_output(Output.DataLoader)
+        self.chain = self.__create_prompt('write_summary') | self.llm | StrOutputParser()
 
-    def __create_prompt(self):
-        template = """주어진 목표:
-        {optimized_goal}
-        
-        조사결과:
-        {results}
-        
-        너는 조사결과와 주어진 목표를 바탕으로 보고서 결론을 작성하는 야구 전문가야. 다음과 같은 지시 사항을 준수하여 응답을 생성해줘
-        [지시사항]
-        - 조사결과를 활용하여 주어진 목표를 달성할 수 있는 글을 700자 내외로 작성해주십시오.
-        - 타이틀과 같은 마크다운요소를 제외하고 오직 줄글로 작성하여 해당 보고서의 결론을 생성해주십시오.
-        """
-        prompt = ChatPromptTemplate.from_template(template)
+    def __create_prompt(self, prompt_type:str):
+ 
+        prompt = {
+            'select_table':
+                  """당신은 SQL 쿼리 전문가입니다. 사용자의 요청을 SQL 쿼리로 변환하는 임무를 맡습니다. 
+                  아래 사용자 요청을 이해한 후 테이블 정보를 참고하여 필요한 테이블명을 모두 선정한 후 리스트 형태로 반환하시오.
+                  
+                  사용자 요청
+                  {query}
+                  
+                  테이블 정보
+                  {table_desc}
+                  
+                  예시
+                  - 사용자 요청: 팀단위 전력분석 보고서 작성에 대한 상세 정보
+                  - 답변: ['tb_st_team_standings_stats']""",
+            
+            
+            'write_summary': """주어진 목표:
+            {optimized_goal}
+            
+            조사결과:
+            {results}
+            
+            너는 조사결과와 주어진 목표를 바탕으로 보고서 결론을 작성하는 야구 전문가야. 다음과 같은 지시 사항을 준수하여 응답을 생성해줘
+            [지시사항]
+            - 조사결과를 활용하여 주어진 목표를 달성할 수 있는 글을 700자 내외로 작성해주십시오.
+            - 타이틀과 같은 마크다운요소를 제외하고 오직 줄글로 작성하여 해당 보고서의 결론을 생성해주십시오.
+            - 컬럼 메타 정보를 참조하여 결과를 해석해주십시오.
+            
+            컬럼 메타 정보:
+            {column_meta}
+            """
+            }
+    
+        prompt = ChatPromptTemplate.from_template(prompt[prompt_type])
+
         return prompt
         
     def invoke(self, optimized_goal:str, results:str):
-        answer = self.chain.invoke({'optimized_goal':optimized_goal, 'results':results})
-        return answer.text
+        target_tables = self.select_tb_chain.invoke({'query':optimized_goal, 'table_desc':self.tb_desc}).target_tables
+        table_info = self.db.get_table_info(table_names=target_tables, get_col_comments=True)
+        column_info = table_info.split('*\n')[1] 
+        answer = self.chain.invoke({'optimized_goal':optimized_goal, 'results':results, 'column_meta':column_info})
+        return answer
+    
+    def _execute_query(self, query):
+        rdb = DB('pg', 'postgres')
+        data = rdb.read_table(query)
+        return data # 여기에 테이블정보를 추가하는 방법
+    
+    def _get_db_desc(self):
+        query = """SELECT ps.relname as table_nm, pd.description AS table_desc
+                   FROM pg_stat_user_tables ps
+                   JOIN pg_description pd
+                   ON ps.relid = pd.objoid AND pd.objsubid = 0
+                   where ps.schemaname = 'doosan' """
+        return {k:v for k, v in self._execute_query(query).values}
 
     def __str__(self):
         return f'{self.__class__.__name__}'

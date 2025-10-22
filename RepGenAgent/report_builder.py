@@ -352,7 +352,7 @@ def add_chart_section(doc, block, container=None):
     paragraph = target.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = paragraph.add_run()
-    run.add_picture(img_stream, height=Inches(3.5))  # width=Inches(5.0)
+    run.add_picture(img_stream, width=Inches(6.0))  # height=Inches(3.5)
 
 
 # ============================================================
@@ -371,7 +371,9 @@ def multi_table_text(doc, block):
         header_cell = table.cell(0, idx)
         header_cell.text = child["contents_id"]
         header_cell._tc.get_or_add_tcPr().append(
-            parse_xml(r'<w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" w:fill="D9D9D9"/>')
+            parse_xml(
+                r'<w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" w:fill="D9D9D9"/>'
+            )
         )
         for p in header_cell.paragraphs:
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -380,9 +382,29 @@ def multi_table_text(doc, block):
 
         # 2행: 데이터 요약
         data_cell = table.cell(1, idx)
-        values = flatten_table_string(child["results"])  # 여기서 단일 row로 전처리
+        values = flatten_table_string(child["results"])  # 단일 row 전처리
 
-        lines = [f"{k}: {v}" for k, v in values.items()]
+        # Rank 정보 미리 매핑 (ex: {'DRS': 17.0})
+        rank_map = {
+            k.replace("_Rank", ""): (v[0] if isinstance(v, list) else v)
+            for k, v in values.items()
+            if k.endswith("_Rank")
+        }
+
+        lines = []
+        for k, v in values.items():
+            # Rank 컬럼 자체는 건너뛰기 (_Rank)
+            if k.endswith("_Rank"):
+                continue
+
+            val = v[0] if isinstance(v, list) else v
+            rank_val = rank_map.get(k)
+
+            if rank_val is not None:
+                lines.append(f"{k}: {val} ({int(rank_val)}위)")
+            else:
+                lines.append(f"{k}: {val}")
+
         data_cell.text = "\n".join(lines)
 
     return table
@@ -476,7 +498,8 @@ def build_report(data_dict, output_file="report.docx", output_dir=None):
     # === 문서 요약 ===
     intro = data_dict.get("final_output", "")
     if intro:
-        add_block_heading(doc, "0. 요약")
+        #add_block_heading(doc, "0. 요약")   # 제목 수동 추가
+        doc.add_paragraph("")  # 빈 단락으로 줄띄움
         doc.add_paragraph(intro)
 
     # === 본문 블록 ===

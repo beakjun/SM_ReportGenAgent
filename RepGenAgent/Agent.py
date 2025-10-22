@@ -11,6 +11,7 @@ from .Output import Output
 from langchain.agents import create_react_agent,AgentExecutor
 
 from BK.db import DB
+from .Source import db
 from langchain_community.utilities import SQLDatabase
 
 # Report
@@ -162,21 +163,21 @@ class GoalOptimizer(object):
 
     def __create_prompt(self):
         template = """당신은 야구 관련된 리포트 작성을 위한 목표 설정 전문가입니다.
-            주어진 원래목표와 주어진 문서(계획서)를 기반으로 콘텐츠별로 달성 가능한 세부적인 목표를 생성하십시오.
-            [원래목표]
-            {query}
+        주어진 원래목표와 검색된 보고서 작성 계획서를 기반으로 콘텐츠별로 달성 가능한 세부적인 목표를 생성하십시오.
+        [원래목표]
+        {query}
 
-            [지시사항]
-            1. 주어진 문서에서의 목차번호와 해당 콘텐츠의 제목을 반드시 세부적인 목표와 같이 명시해주십시오.
-            2. 주어진 문서의 콘텐츠별로 최종적으로 달성해야할 목표를 아래와 같이 매핑하여 명시해주십시오.
-                - 표, Table : 데이터 반환
-                - Chart : 파이썬 코드 반환
-                
-            3. 원래 목표의 범위를 기준으로 반드시 주어진 문서 목차의 콘텐츠별로 달성해야될 목표를 작성하십시오.
-            4. 원래 목표를 그대로 반환하지 말것.
+        [지시사항]
+        1. 검색된 보고서 작성 계획서에서의 목차번호와 해당 콘텐츠의 제목을 반드시 세부적인 목표와 같이 명시해주십시오.
+        2. 검색된 보고서 작성 계획서의 콘텐츠별로 최종적으로 달성해야할 목표를 아래와 같이 매핑하여 명시해주십시오.
+            - 표, Table : 데이터 반환
+            - Chart : 파이썬 코드 반환
             
-            [주어진 문서]
-            {docs}
+        3. 원래목표의 범위를 기준으로 반드시 검색된 보고서 작성 계획서의 목차 콘텐츠별로 달성해야될 구체적인 목표를 작성하십시오.
+        4. 원래목표를 그대로 반환하거나 원래목표와 같이 한문장으로 끝내지 않고 구체적으로 목표를 작성할 것
+        
+        [검색된 보고서 작성 계획서]
+        {docs}
         """
         prompt = ChatPromptTemplate.from_template(template)
         return prompt
@@ -286,7 +287,7 @@ class ExecuteTask(object):
         return f'{self.__class__.__name__}'
     
 class ResultAggregator(object):
-    def __init__(self, llm, db:SQLDatabase):
+    def __init__(self, llm, db:SQLDatabase=db):
         self.llm = llm
         self.db = db
         self.tb_desc = self._get_db_desc()

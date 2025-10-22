@@ -10,13 +10,20 @@ from .Agent import *
 from .Tools import report_tools, task_tools
 from .Source import agent_llm, chat_llm, vectorstore
 
+
 import uuid
+
+class TaskInfo(BaseModel):
+    contents_id: str = Field(..., description="콘텐츠 목차 + 콘텐츠 명")
+    type: Literal["Chart", "Table"] = Field(..., description="콘텐츠 결과 유형")
+    contents: str = Field(..., description="태스크 설명")
 
 class Turn(BaseModel):
     user_query: str=Field(default_factory=list, description='유저 쿼리')      
     mode: Literal['task', 'report', 'ect'] = Field(default='', description="모드")
     ai_answer: str=Field(default_factory=list, description='답변')                           
     ts: datetime=Field(default_factory=datetime.now())
+
 
 class State(BaseModel):
     query: str = Field(..., description='사용자가 입력한 쿼리')
@@ -29,7 +36,7 @@ class State(BaseModel):
     doc_val_reason:str= Field(default='', description='문서 검증 증거')
     documents:str = Field(default='', description='검증에 참조한 문서')
     optimized_goal: str = Field(default='', description='최적화된 목표') 
-    tasks: list = Field(default_factory=list, description='실행할 테스크 리스트')
+    tasks: list[TaskInfo] = Field(default_factory=list, description='실행할 테스크 리스트')
     current_task_index: int = Field(default=0, description='현재 실행 중인 테스크 변호')
     results: list = Field(default_factory=list, description='실행 완료된 테스크 결과 리스트')
     final_output: str = Field(default='', description='최종 출력 결과')
@@ -59,8 +66,7 @@ def get_mode(state:State):
             'current_task_index': 0,
             'goal' : '',
             'report_title':'',
-            'mode': '',
-            'doc_val_response':'',
+            'doc_val_response':'YES',
             "doc_val_reason":'',
             "documents":'',
             "optimized_goal":'',
@@ -114,7 +120,7 @@ def execute_task(state:State):
     complete_tasks = state['results']
     current_task_index = state['current_task_index']
     task = state['tasks'][current_task_index]
-    answer = ExecuteTask(tools=report_tools).invoke(task['contents'])
+    answer = ExecuteTask(llm=agent_llm,tools=report_tools).invoke(task['contents'])
     task['results'] = answer
     current_task_index += 1
     return {'results': complete_tasks + [task], 'current_task_index':current_task_index}
@@ -124,8 +130,7 @@ def aggregate_result(state:State):
     state = state.dict()
     results = state['results']
     optimized_goal = state['optimized_goal']
-    #optimized_response = state['optimized_response']
-    answer = ResultAggregator().invoke(optimized_goal, results)
+    answer = ResultAggregator(llm=agent_llm).invoke(optimized_goal, results)
     
     history = {
         "user_query": state['query'],
@@ -153,7 +158,7 @@ def single_get_info(state:State):
 def single_execute_task(state:State):
     state = state.dict()
     goal = state['goal']
-    answer = ExecuteTask(tools= task_tools).invoke(goal)
+    answer = ExecuteTask(llm=agent_llm,tools=task_tools).invoke(goal)
     return {'results': [answer]}
 
 

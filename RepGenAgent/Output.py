@@ -23,7 +23,7 @@ class Output(object):
             return f'{self.description}'
             
     class GoalOptimizer(BaseModel):
-        description:str = Field(..., description='목표 설명')
+        description:str = Field(..., description='목차별 목표 설명')
     
         @property
         def text(self) -> str:

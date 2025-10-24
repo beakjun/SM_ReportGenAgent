@@ -17,7 +17,7 @@ class DataLoader(object):
         self.llm = ChatGoogleGenerativeAI(model='gemini-2.5-flash', temperature=0, top_p=1)
         self.db = db
         self.tb_desc = self._get_db_desc()
-        self.write_query = create_sql_query_chain(self.llm, db, prompt=self.__create_prompt('write_query'))
+        self.write_query = create_sql_query_chain(self.llm, db, prompt=self.__create_prompt('write_query'), get_col_comments=True)
         self.select_tb_chain = self.__create_prompt('select_table') | self.llm.with_structured_output(Output.DataLoader)
         self.chain = self.write_query | RunnableLambda(self.__clean_answer) |RunnableLambda(self._execute_query)
     
@@ -41,16 +41,18 @@ class DataLoader(object):
                   
                   쿼리 작성 규칙:
                   - 주어진 정보를 깊게 생각하여 쿼리를 생성하여라.
-                  - tool을 있는 그대로(축약금지, 꾸며내기 금지) 활용해 참조한 DB정보를 바탕으로 불러온 DB정보안에 들어있는 컬럼명을 반드시 참조해서 SQL문 작성.
-                  - 모든 컬럼명에는 ""로 감싸주며, 테이블 정보안에 유사한 뜻을 가진 컬럼명이 있다면 해당 컬럼명을 사용하고, 파생변수일 경우도 테이블정보를 최대한 참조해서 작성해줘.
-                  - 팀,시즌과 같이 조회 조건으로 활용한 컬럼명들은 쿼리 작성 시 Select문에서 반드시 제외할 것
+                  - 먼저 주어진 정보가 이미 존재하는지 먼저 확인하고 없다면 파생변수를 생성하시오.
+                  - SELECT 절에서 데이터베이스에 이미 존재하는 컬럼 이름은 (한글 포함 여부와 상관없이) 반드시 스키마에 있는 이름 그대로 사용해야 합니다. 다만 컬럼명이 대문자일 경우 as 를 활용해 ""로 감싸주십시오.
+                  - SUM(), AVG(), COUNT() 등의 함수를 사용하거나 사칙연산으로 새롭게 계산된 파생 컬럼인 경우에만, 기존컬럼명에다가 해당 계산식 전체에 대해 표준 영문 snake_case 별칭을 부여해야 합니다.
+                  - 모든 컬럼명에는 ""로 감싸주고, as 를 활용해서 별칭을 만들어 줄 때도 반드시 ""를 활용할 것.
+                  - 팀,시즌과 같이 조회 조건으로 활용한 컬럼명들은 쿼리 작성 시 Select문에서 반드시 제외할 것.
                   - Select외 나머지 DDL 사용 금지.
                   - 최종 출력은 SQL 쿼리만 출력.
                   - 어떤 경우에도 "SQLQuery:", "Answer:", "Output:" 등의 접두어를 포함하지 않는다.
                   - 반드시 SQL문만 순수하게 출력한다. (SELECT로 시작해야 함)
                   - tool을 호출하지 않고는 절대 판단하지 말 것.
                   - Schema정보를 반드시 참조하여 테이블명을 완성시킬 것.
-                  - 소수점이 긴 경우, numeric 타입으로 변환 후 둘째 자리까지 반올림한다.
+                  - 소수점이 긴 경우, numeric 타입으로 변환 후 둘째 자리까지 반올림할 것.
                   - 어떤 경우에도 쿼리는 ```을 사용하지 않고 작성한다.
                   - LIMIT에 대한 요청이 없는 경우 전체 데이터 조회
                   - UNION ALL을 사용하여 데이터를 합쳐야할 경우 limit 구문을 사용하지 말것
@@ -58,7 +60,7 @@ class DataLoader(object):
                   사용자 요청:
                   {input}
                   
-                  테이블 정보: 
+                  활용 컬럼 정보: 
                   {table_info}
                   
                   최대 데이터 추출 수: {top_k}
@@ -80,13 +82,11 @@ class DataLoader(object):
 
     def invoke(self, query:dict):
         target_tables = self.select_tb_chain.invoke({'query':query, 'table_desc':self.tb_desc}).target_tables
-        table_info = self.db.get_table_info(table_names=target_tables, get_col_comments=True)
-        return self.chain.invoke({'question':query, 'table_info':table_info})
+        return self.chain.invoke({'question':query, "table_names_to_use": target_tables})
 
     def ainoke(self, query:dict):
-        target_tables = self.select_tb_chain.ainvoke({'query':query, 'table_desc':self.tb_desc}).target_tables
-        table_info = self.db.get_table_info(table_names=target_tables, get_col_comments=True)
-        return self.chain.ainvoke({'question':query, 'table_info':table_info})
+        target_tables = self.select_tb_chain.invoke({'query':query, 'table_desc':self.tb_desc}).target_tables
+        return self.chain.invoke({'question':query, "table_names_to_use": target_tables})
     
     def __clean_answer(self, query):
         clean_query = re.sub('SQLQuery: {0,1}', '', query)

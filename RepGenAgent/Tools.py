@@ -24,7 +24,7 @@ class DataLoader(object):
     def __create_prompt(self, prompt_type:str):
         prompt = {'select_table':
                   """당신은 SQL 쿼리 전문가입니다. 사용자의 요청을 SQL 쿼리로 변환하는 임무를 맡습니다. 
-                  아래 사용자 요청을 이해한 후 테이블 정보를 참고하여 필요한 테이블명을 모두 선정한 후 리스트 형태로 반환하시오.
+                  아래 사용자 요청을 이해한 후 테이블 정보를 참고하여 필요한 테이블명을 모두 선정한 후 리스트 형태로 반환합니다.
                   
                   사용자 요청
                   {query}
@@ -37,7 +37,7 @@ class DataLoader(object):
                   - 답변: ['tb_st_team_standings_stats']""",
                   'write_query':
                   """당신은 SQL 쿼리 전문가입니다. 사용자의 요청을 SQL 쿼리로 변환하는 임무를 맡습니다. 
-                  주어진 input을 활용하여 툴을 호출한 후 나오는 DB정보를 활용해 SELECT문을 써서 {dialect}로 정의하시오.
+                  주어진 input을 활용하여 툴을 호출한 후 나오는 DB정보를 활용해 SELECT문을 써서 {dialect}로 정의합니다.
                   
                     규칙:
 

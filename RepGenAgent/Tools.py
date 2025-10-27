@@ -23,7 +23,8 @@ class DataLoader(object):
     
     def __create_prompt(self, prompt_type:str):
         prompt = {'select_table':
-                  """당신은 SQL 쿼리 전문가입니다. 사용자의 요청을 SQL 쿼리로 변환하는 임무를 맡습니다. 
+                  """
+                  당신은 SQL 쿼리 전문가입니다. 사용자의 요청을 SQL 쿼리로 변환하는 임무를 맡습니다. 
                   아래 사용자 요청을 이해한 후 테이블 정보를 참고하여 필요한 테이블명을 모두 선정한 후 리스트 형태로 반환합니다.
                   
                   사용자 요청

@@ -25,14 +25,14 @@ def build_doc_structure(loaded_dict: dict) -> dict:
     Parameters
     ----------
     loaded_dict : dict
-        'documents', 'results', 'report_title', 'final_output' 등을 포함한 원본 딕셔너리
+        'documents', 'results', 'report_title', 'report_conclusion' 등을 포함한 원본 딕셔너리
 
     Returns
     -------
     dict
         {
             "doc_title": str,
-            "final_output": str,
+            "report_conclusion": str,
             "blocks": list
         }
     """
@@ -41,7 +41,7 @@ def build_doc_structure(loaded_dict: dict) -> dict:
     doc_text = loaded_dict.get('documents', '')
     results = loaded_dict.get('results', [])
     doc_title = loaded_dict.get('report_title', '')
-    final_output = loaded_dict.get('final_output', '')
+    report_conclusion = loaded_dict.get('report_conclusion', '')
 
     # "주요 목차" 구간만 추출
     match = re.search(r'주요 목차:(.*?)(?=-목차 콘텐츠:)', doc_text, re.DOTALL)
@@ -78,7 +78,7 @@ def build_doc_structure(loaded_dict: dict) -> dict:
     # 최종 JSON 구조
     output = {
         "doc_title": doc_title,
-        "final_output": final_output,
+        "report_conclusion": report_conclusion,
         "blocks": blocks
     }
 
@@ -384,21 +384,21 @@ def multi_table_text(doc, block):
         data_cell = table.cell(1, idx)
         values = flatten_table_string(child["results"])  # 단일 row 전처리
 
-        # Rank 정보 미리 매핑 (ex: {'DRS': 17.0})
+        # Rank 정보 매핑 (대소문자 무시)
         rank_map = {
-            k.replace("_Rank", ""): (v[0] if isinstance(v, list) else v)
+            k.lower().replace("_rank", ""): (v[0] if isinstance(v, list) else v)
             for k, v in values.items()
-            if k.endswith("_Rank")
+            if k.lower().endswith("_rank")
         }
 
         lines = []
         for k, v in values.items():
-            # Rank 컬럼 자체는 건너뛰기 (_Rank)
-            if k.endswith("_Rank"):
+            # Rank 컬럼 자체는 건너뛰기
+            if k.lower().endswith("_rank"):
                 continue
 
             val = v[0] if isinstance(v, list) else v
-            rank_val = rank_map.get(k)
+            rank_val = rank_map.get(k.lower())
 
             if rank_val is not None:
                 lines.append(f"{k}: {val} ({int(rank_val)}위)")
@@ -496,11 +496,18 @@ def build_report(data_dict, output_file="report.docx", output_dir=None):
     heading.paragraph_format.space_after = Pt(0)
 
     # === 문서 요약 ===
-    intro = data_dict.get("final_output", "")
+    intro = data_dict.get("report_conclusion", "")
     if intro:
         #add_block_heading(doc, "0. 요약")   # 제목 수동 추가
         doc.add_paragraph("")  # 빈 단락으로 줄띄움
-        doc.add_paragraph(intro)
+
+        # **굵게** 처리 로직 적용
+        paragraph = doc.add_paragraph()
+        parts = intro.split("**")
+        for i, part in enumerate(parts):
+            run = paragraph.add_run(part)
+            if i % 2 == 1:
+                run.bold = True
 
     # === 본문 블록 ===
     for block in data_dict["blocks"]:

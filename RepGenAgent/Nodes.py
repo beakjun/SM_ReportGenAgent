@@ -39,6 +39,7 @@ class State(BaseModel):
     tasks: list[TaskInfo] = Field(default_factory=list, description='실행할 테스크 리스트')
     current_task_index: int = Field(default=0, description='현재 실행 중인 테스크 변호')
     results: list = Field(default_factory=list, description='실행 완료된 테스크 결과 리스트')
+    report_conclusion: str = Field(default='', description='리포트의 결론')
     final_output: str = Field(default='', description='최종 출력 결과')
     save_dir: str = Field(default='', description='프롬프트id별 저장 경로')
 
@@ -134,11 +135,12 @@ def aggregate_result(state:State):
     
     history = {
         "user_query": state['query'],
-        "ai_answer": answer,
+        "ai_answer": answer['summary'],
         "ts" : datetime.now()
     }
     
-    return {'final_output': answer, "history" : [history]}
+    return {'report_conclusion': answer['conclusion'], 'final_output': answer['summary'], "history" : [history]}
+
 
 
 # 단일 태스크

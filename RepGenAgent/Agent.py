@@ -69,11 +69,15 @@ class PassiveGoalCreator(object):
             [제약사항]
                 1. 사용자의 입력에 없는 분석 요소들을 반환하지 않습니다.
                 2. report_title에는 시즌이나 팀에 대한 사용자의 입력사항이 없다면 보고서명만 작성합니다.
+                3. 보고서 작성 요청이 아닌 단일 Task (데이터 조회, 차트 요청 등과 같은 단일 Task) 요청 시 보고서 제목 없이 요청 내용만 명확하게 정리해서 반환합니다.
 
             [응답형식]
                 1. 아래와 같은 예시처럼 작성하여 주십시오.
                 input: 2024년 LAD팀 전력분석보고서 작성해줘
                 ouput: {{description: 2024년 LAD팀 전력분석보고서 작성, report_title: 2024년 LAD팀 전력분석보고서}}
+                
+                input: 2024년 LAD팀 전력분석보고서 약점 위주로 작성해줘
+                ouput: {{description: 2024년 LAD팀 전력분석보고서 약점 위주로 작성, report_title: 2024년 LAD팀 전력분석보고서}}
                 
             사용자 입력: {query}
             """
@@ -116,22 +120,22 @@ class GetReportInfo(object):
         )
     def __create_prompt(self):
         template = """
-            당신은 엄격하고 객관적인 문서 유효성 검사관입니다. 아래에 제시된 **[사용자 목표/질문]**과 **[검색된 문서]**를 철저하게 비교하여, 문서가 목표를 설명하는 데 충분한 정보를 제공하는지 여부를 판단합니다.
+            당신은 엄격하고 객관적인 문서 유효성 검사관입니다. 아래에 제시된 [사용자 목표/질문]과 [검색된 문서]를 철저하게 비교하여, 문서가 목표를 설명하는 데 충분한 정보를 제공하는지 여부를 판단합니다.
 
             [안내]
             YES:
-            - 문서가 **[사용자 목표/질문] 전체 주제의 본질적인 목적과 범위**를 직접적으로 다루고 있으며, 그 내용을 바탕으로 목표를 완전하게 설명하거나 보고서를 작성할 수 있을 정도로 충분한 정보를 포함한 경우.
-            - 문서의 제목과 주요 내용이 질문의 중심 주제와 명확히 일치하며, 부수적인 세부 주제가 아니라 **전체 주제를 대표**하는 경우.
+            - 문서가 [사용자 목표/질문] 전체 주제의 본질적인 목적과 범위를 직접적으로 다루고 있으며, 그 내용을 바탕으로 목표를 완전하게 설명하거나 보고서를 작성할 수 있을 정도로 충분한 정보를 포함한 경우.
+            - 문서의 제목과 주요 내용이 질문의 중심 주제와 명확히 일치하며, 부수적인 세부 주제가 아니라 전체 주제를 대표하는 경우.
 
             NO:
-            - 문서가 질문의 **주요 목차의 일부이거나 구성요소만 다루는 경우.**
-            - 문서가 질문의 **핵심 키워드 일부만 포함하지만**, 그 내용을 통해 전체 목표를 충족할 수 없는 경우.
-            - 문서가 질문의 주제를 **간접적으로 언급**하거나, 일부 관련된 정보만 제공하는 경우.
-            - 문서가 단순히 데이터, 사례, 혹은 부분적 설명만 포함하여 **질문 전체에 대한 답변이나 초안을 구성할 수 없는 경우.**
+            - 문서가 질문의 주요 목차의 일부이거나 구성요소만 다루는 경우.
+            - 문서가 질문의 핵심 키워드 일부만 포함하지만, 그 내용을 통해 전체 목표를 충족할 수 없는 경우.
+            - 문서가 질문의 주제를 간접적으로 언급하거나, 일부 관련된 정보만 제공하는 경우.
+            - 문서가 단순히 데이터, 사례, 혹은 부분적 설명만 포함하여 질문 전체에 대한 답변이나 초안을 구성할 수 없는 경우.
 
             유의사항:
             - 핵심 키워드가 일부 등장하더라도, 그 내용이 전체 주제의 맥락과 목적을 포괄하지 않으면 반드시 NO로 판단해야 합니다.
-            - 질문이 포괄적인 목적을 가진 경우, 문서가 그 **전체 목적을 충족하지 않으면 YES로 분류할 수 없습니다.**
+            - 질문이 포괄적인 목적을 가진 경우, 문서가 그 전체 목적을 충족하지 않으면 YES로 분류할 수 없습니다.
 
             마지막으로 증거를 남기기위해 검색된 문서에 대해서 그대로 들고와주십시오.
                 
@@ -181,15 +185,15 @@ class GoalOptimizer(object):
         {query}
 
         [안내]
-        1. 주어진 문서에서의 목차번호와 해당 목차의 제목을 반드시 세부적인 목표와 같이 명시합니다..
-        2. 주어진 문서의 목차별로 최종적으로 달성해야할 목표를 아래와 같이 매핑하여 명시합니다..
+        1. 주어진 문서에서의 목차번호와 해당 목차의 제목을 반드시 세부적인 목표와 같이 명시합니다.
+        2. 주어진 문서의 목차별로 최종적으로 달성해야할 목표를 아래와 같이 매핑하여 명시합니다.
             - 표, Table : 데이터 반환
-            - Chart : 파이썬 코드 반환
+            - Chart : 파이썬 시각화 코드 반환
             
         3. 원래 목표의 범위를 기준으로 반드시 주어진 문서의 목차별로 달성해야될 목표를 작성합니다.
         4. 원래 목표를 그대로 반환하지 않고 아래 주어진 문서의 목차별로 달성해야될 목표를 작성합니다.
         5. 문서의 목차 외 다른 목차를 구성하지 않습니다.
-        6. 원래 목표에서 상세한 결과를 요청 시 상세쿼리플랜을 참조하여 목표를 목표를 작성합니다.
+        6. 원래 목표에서 상세한 결과를 요청할 때만 상세쿼리플랜을 참조하여 목표를 작성합니다.
         
         [주어진 문서]
         {docs}
@@ -265,17 +269,18 @@ class ExecuteTask(object):
         Action Input: 행동에 대한 입력값
         Observation: 행동의 결과... (이 Thought/Action/Action Input/Observation의 과정이 N번 반복될 수 있습니다.)
         Thought: 이제 최종 답변을 알겠습니다.
-        Final Answer: 원래 입력된 질문에 대한 최종 답변
+        Final Answer: 원래 입력된 질문에 대한 최종 답변(마크다운 요소제거 한 후 여기에 최종 답변 텍스트 또는 값)
         
         ## 추가적인 주의사항
         - 반드시 [Thought/Action/Action Input format] 이 사이클의 순서를 준수하십시오. 항상 Action 전에는 Thought가 먼저 나와야 합니다.
+        - 최종 답변을 내릴 때, Thought: 이제 최종 답변을 알겠습니다. 다음에는 반드시 Final Answer: 만 작성하고, 절대로 그 사이에 다른 설명, 텍스트, 또는 Action: 태그를 넣지 마십시오.
         - 한 번의 검색으로 해결되지 않을 것 같다면 문제를 분할하여 푸는 것이 중요합니다.
         - Action Input은 정확하게 필요한 요소들로 생성합니다. query: 등과 같은 접두어 사용금지
         - 정보가 취합되었다면 불필요하게 사이클을 반복하지 마십시오.
         - 묻지 않은 정보를 찾으려고 도구를 사용하지 마십시오.
         - 가능한 구체적인 사실이나 데이터를 제공하세요.
         - 차트를 생성하는 코드를 작성하는 요청이 들어오면, 차트를 생성하는 순수한 파이썬 코드만 답변하세요. 
-        - 테이블을 반환하는 경우는 Observation값을 마크다운 형식말고 순수한 dictionary 형태(key:[value])로 작성하고, 차트는 파이썬 코드는 마크다운 형식 말고 순수한 파이썬 코드만 생성
+        - 테이블을 반환하는 경우는 Fianl Answer 값을 마크다운 형식말고 순수한 dictionary 형태(key:[value])로 작성하고, 차트는 파이썬 코드는 마크다운 형식 말고 순수한 파이썬 코드만 생성(plt.show()는 반드시 주석처리할 것)
         
         시작하세요!
         Question: {task}
@@ -309,7 +314,8 @@ class ResultAggregator(object):
         self.db = db
         self.tb_desc = self._get_db_desc()
         self.select_tb_chain = self.__create_prompt('select_table') |  self.llm.with_structured_output(Output.DataLoader)
-        self.chain = self.__create_prompt('write_summary') | self.llm | StrOutputParser()
+        self.conclusion_chain = self.__create_prompt('write_conclusion') | self.llm | StrOutputParser()
+        self.summary_chain = self.__create_prompt('write_summary') | self.llm | StrOutputParser()
 
     def __create_prompt(self, prompt_type:str):
  
@@ -329,20 +335,36 @@ class ResultAggregator(object):
                   - 답변: ['tb_st_team_standings_stats']""",
             
             
-            'write_summary': """주어진 목표:
+            'write_conclusion': """주어진 목표:
             {optimized_goal}
             
             조사결과:
             {results}
             
-            너는 조사결과와 주어진 목표를 바탕으로 보고서 결론을 작성하는 야구 전문가야. 다음과 같은 지시 사항을 준수하여 응답을 생성해줘
+            너는 조사결과와 주어진 목표를 바탕으로 보고서 결론을 작성하는 야구 전문가입니다. 다음과 같은 지시 사항을 준수하여 응답을 생성합니다.
+            
             [지시사항]
-            - 조사결과를 활용하여 주어진 목표를 달성할 수 있는 글을 600자 내외로 작성해주십시오.
-            - 타이틀과 같은 마크다운요소는 제외하고 줄글로 작성하되 중요하다고 생각하는 단어말고 문장을 bold처리를 해줘서 해당 보고서의 결론을 작성하여주십시오.
-            - 컬럼 메타 정보를 반드시 참조하여 결과를 해석해주십시오.
+            - 조사결과를 활용하여 주어진 목표를 달성할 수 있는 결론을 반드시 공백포함 600자 이내로 작성해주십시오.
+            - 중요한 조사결과를 우선적으로 사용하여 결론을 작성하며, 공백포함 600자 이내 작성을 위해 과감히 결론을 요약합니다.
+            - 타이틀과 같은 마크다운요소는 제외하고 결론 작성하면서 단순 지표에 대한 설명 말고 중요한 생각이나 의견을 담은 문장에 bold 처리합니다.
+            - 조사결과 중 파이썬 코드인 경우는 그 안에 데이터만 활용하여 결론을 작성합니다.
+            - 컬럼 메타 정보를 반드시 참조하여 결과를 해석합니다.
             
             컬럼 메타 정보:
             {column_meta}
+            """,
+            'write_summary':"""
+            너는 리포트 작성에 대한 결과를 사용자에게 알리는 챗봇입니다. 다음과 같은 지시 사항을 준수하여 응답을 생성합니다.
+            
+            [지시사항]
+            - 리포트 생성이 완료되었다는 사실을 먼저 알립니다.
+            - 아래 리포트 결론을 바탕으로 핵심사항을 300자 이내로 꾸밈없이 명확하게 작성합니다.
+            - Bold 처리를 통해 핵심적인 단어나 문장을 강조합니다.
+            - 불필요한 서론/결론/제목 등과 같은 마크다운요소 사용을 금지합니다.
+            - 자세한 내용은 다운로드 버튼을 통해 리포트를 저장하여 확인할 수 있다고 알립니다.
+            
+            리포트 결론:
+            {conclusion}
             """
             }
     
@@ -354,8 +376,10 @@ class ResultAggregator(object):
         target_tables = self.select_tb_chain.invoke({'query':optimized_goal, 'table_desc':self.tb_desc}).target_tables
         table_info = self.db.get_table_info(table_names=target_tables, get_col_comments=True)
         column_info = table_info.split('*\n')[1] 
-        answer = self.chain.invoke({'optimized_goal':optimized_goal, 'results':results, 'column_meta':column_info})
-        return answer
+        conclusion = self.conclusion_chain.invoke({'optimized_goal':optimized_goal, 'results':results, 'column_meta':column_info})
+        summary = self.summary_chain.invoke({'conclusion':conclusion})
+        
+        return {'conclusion':conclusion, 'summary':summary}
     
     def _execute_query(self, query):
         rdb = DB('pg', 'postgres')
@@ -375,6 +399,8 @@ class ResultAggregator(object):
 
     def __repr__(self):
         return f'{self.__class__.__name__}'
+
+
 
 # Task
 class SingleGettInfo(object):
